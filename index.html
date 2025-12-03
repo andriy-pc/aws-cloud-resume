@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Resume Challenge</title>
+    <meta name="description"
+          content="AWS Cloud Resume Challenge site by Your Name — serverless visitor counter, AWS architecture, and professional profile.">
+    <meta name="theme-color" content="#0b74de">
+    <meta property="og:title" content="Cloud Resume Challenge — Your Name">
+    <meta property="og:description"
+          content="Resume site built on AWS with a serverless visitor counter and architecture overview.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="images/aws-solution-architect-associates.webp">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+    <div class="header-copy">
+        <h1>AWS Cloud Resume Challenge</h1>
+        <p class="subtitle">Built with AWS services, IaC, and a serverless visitor counter</p>
+    </div>
+    <div class="visitor-counter" aria-live="polite">
+        Visitor Counter: <span class="counter" title="Total visitors">0</span>
+    </div>
+</header>
+
+
+<main>
+    <!-- Section 1: About the Challenge -->
+    <p class="social-links">
+        <a href="Your LinkedIn" target="_blank" rel="noopener noreferrer"
+           aria-label="LinkedIn profile">
+            <img src="images/linkedin.svg" alt="LinkedIn" width="20">
+        </a>
+        <a href="https://github.com/full/repo-name" target="_blank" rel="noopener noreferrer"
+           aria-label="GitHub repository">
+            <img src="images/github.svg" alt="GitHub" width="20">
+        </a>
+    </p>
+    <section>
+        <h2>About This Site</h2>
+        <p>This site is part of the <a href="https://cloudresumechallenge.dev/" target="_blank">Cloud Resume
+            Challenge</a>.
+            The goal of the challenge is to build a resume site hosted entirely on AWS using infrastructure-as-code and
+            cloud-native services,
+            while tracking visitors in a serverless and scalable manner.</p>
+    </section>
+
+    <section>
+        <h2>Architecture Overview</h2>
+        <p>The architecture follows the steps described in the Cloud Resume Challenge:</p>
+        <ul>
+            <li>Frontend hosted on <strong>Amazon S3</strong> and served via <strong>CloudFront</strong> for global
+                caching and SSL.
+            </li>
+            <li>Visitor counter implemented using <strong>AWS Lambda</strong> functions and <strong>API Gateway</strong>
+                for the API.
+            </li>
+            <li>Visitor data stored in <strong>DynamoDB</strong> with monitoring via <strong>CloudWatch</strong>.</li>
+            <li>Infrastructure is defined as <strong>CloudFormation templates</strong> and deployed using CI/CD
+                pipelines.
+            </li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>A few words about me</h2>
+        <p>A few words about you</p>
+    </section>
+
+</main>
+
+<script src="visitors.js"></script>
+</body>
+</html>
