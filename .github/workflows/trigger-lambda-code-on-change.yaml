@@ -1,0 +1,30 @@
+name: Deploy Lambda Code on Change
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'lambda_handler.py'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'lambda_handler.py'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  LoadConfig:
+    uses: ./.github/workflows/config.yaml
+
+  DeployLambdaCode:
+    needs: [LoadConfig]
+    uses: ./.github/workflows/deploy-lambda-code.yaml
+    with:
+      aws_region: ${{ needs.LoadConfig.outputs.aws_region }}
+      iam_role_name: ${{ needs.LoadConfig.outputs.iam_role_name }}
+      storage_stack_name: ${{ needs.LoadConfig.outputs.storage_stack_name }}
+      lambda_function_name: ${{ needs.LoadConfig.outputs.lambda_function_name }}
+    secrets:
+      aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}

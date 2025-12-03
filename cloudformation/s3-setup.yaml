@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  LambdaSourcesBucketNameEnding:
+    Type: String
+    Default: cloud-resume-challenge
+
+Resources:
+  LambdaSourcesBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-${LambdaSourcesBucketNameEnding}
+
+Outputs:
+  LambdaSourcesBucketName:
+    Description: Name of the S3 bucket storing Lambda source ZIPs
+    Value: !Ref LambdaSourcesBucket

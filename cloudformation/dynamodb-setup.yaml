@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  VisitorsTableName:
+    Type: String
+    Description: Name of the DynamoDB table for visitors tracking
+    Default: visitors_tracker
+
+Resources:
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+      BillingMode: PAY_PER_REQUEST
+      DeletionProtectionEnabled: false
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+      TableClass: STANDARD
+      TableName: !Ref VisitorsTableName
+
+Outputs:
+  DynamoDBTableName:
+    Value: !Ref DynamoDBTable
+    Description: Name of the DynamoDB table for visitors tracking

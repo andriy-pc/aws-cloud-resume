@@ -1,0 +1,62 @@
+name: Deploy S3 Stack
+# Deploys S3 bucket for Lambda sources and uploads initial Lambda code
+
+on:
+  workflow_call:
+    inputs:
+      aws_region:
+        required: true
+        type: string
+      iam_role_name:
+        required: true
+        type: string
+      storage_stack_name:
+        required: true
+        type: string
+      sources_bucket_ending:
+        required: true
+        type: string
+    secrets:
+      aws_account_id:
+        required: true
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  CloudFormationS3StackDeployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: ./.github/actions/configure-aws
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          role-arn: arn:aws:iam::${{ secrets.aws_account_id }}:role/${{ inputs.iam_role_name }}
+          session-name: s3-stack-deployment
+
+      - name: Deploy S3 stack
+        id: cloudformation-s3-stack
+        uses: aws-actions/aws-cloudformation-github-deploy@v1.3.0
+        with:
+          name: ${{ inputs.storage_stack_name }}
+          template: ./cloudformation/s3-setup.yaml
+          no-fail-on-empty-changeset: "1"
+          parameter-overrides: |
+            LambdaSourcesBucketNameEnding=${{ inputs.sources_bucket_ending }}
+
+      - name: Fetch S3 bucket name
+        id: fetch-s3-outputs
+        uses: ./.github/actions/get-stack-output
+        with:
+          stack-name: ${{ inputs.storage_stack_name }}
+          output-key: LambdaSourcesBucketName
+
+      - name: Prepare and upload Lambda code
+        id: upload-lambda-code
+        run: |
+          zip -r sources.zip ./lambda_handler.py
+          aws s3 cp ./sources.zip s3://${{ steps.fetch-s3-outputs.outputs.value }}/

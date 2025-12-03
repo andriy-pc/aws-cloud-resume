@@ -1,0 +1,31 @@
+name: Trigger API Gateway Stack on Change
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'cloudformation/api-gateway-setup.yaml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'cloudformation/api-gateway-setup.yaml'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  LoadConfig:
+    uses: ./.github/workflows/config.yaml
+
+  DeployApiGatewayStack:
+    needs: [LoadConfig]
+    uses: ./.github/workflows/deploy-api-gateway-stack.yaml
+    with:
+      aws_region: ${{ needs.LoadConfig.outputs.aws_region }}
+      iam_role_name: ${{ needs.LoadConfig.outputs.iam_role_name }}
+      api_gateway_stack_name: ${{ needs.LoadConfig.outputs.api_gateway_stack_name }}
+      lambda_stack_name: ${{ needs.LoadConfig.outputs.lambda_stack_name }}
+    secrets:
+      aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+

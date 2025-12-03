@@ -1,0 +1,55 @@
+name: Configuration
+on:
+  workflow_call:
+    outputs:
+      aws_region:
+        description: AWS region for all deployments
+        value: ${{ jobs.config.outputs.aws_region }}
+      iam_role_name:
+        description: IAM role name for deployments
+        value: ${{ jobs.config.outputs.iam_role_name }}
+      storage_stack_name:
+        description: S3 storage stack name
+        value: ${{ jobs.config.outputs.storage_stack_name }}
+      dynamodb_stack_name:
+        description: DynamoDB stack name
+        value: ${{ jobs.config.outputs.dynamodb_stack_name }}
+      lambda_stack_name:
+        description: Lambda stack name
+        value: ${{ jobs.config.outputs.lambda_stack_name }}
+      api_gateway_stack_name:
+        description: API Gateway stack name
+        value: ${{ jobs.config.outputs.api_gateway_stack_name }}
+      cloudfront_stack_name:
+        description: CloudFront stack name
+        value: ${{ jobs.config.outputs.cloudfront_stack_name }}
+      lambda_function_name:
+        description: Lambda function name
+        value: ${{ jobs.config.outputs.lambda_function_name }}
+      sources_bucket_ending:
+        description: Suffix for Lambda sources bucket
+        value: ${{ jobs.config.outputs.sources_bucket_ending }}
+      subdomain:
+        description: Subdomain for CloudFront
+        value: ${{ jobs.config.outputs.subdomain }}
+      visitors_table_name:
+        description: DynamoDB table name for visitors tracking
+        value: ${{ jobs.config.outputs.visitors_table_name }}
+
+jobs:
+  config:
+    runs-on: ubuntu-latest
+    outputs:
+      aws_region: us-east-1
+      iam_role_name: automated-deployments
+      storage_stack_name: storage-stack
+      dynamodb_stack_name: dynamodb-stack
+      lambda_stack_name: lambda-stack
+      api_gateway_stack_name: api-gateway-stack
+      cloudfront_stack_name: cloudfront-stack
+      lambda_function_name: visitors_tracker_function
+      sources_bucket_ending: lambda-sources-cloud-resume-challenge
+      subdomain: cv
+      visitors_table_name: visitors_tracker
+    steps:
+      - run: echo "Configuration loaded"

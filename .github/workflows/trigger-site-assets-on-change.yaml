@@ -1,0 +1,36 @@
+name: Trigger Site Upload on Asset Change
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'index.html'
+      - 'styles.css'
+      - 'visitors.js'
+      - 'images/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'index.html'
+      - 'styles.css'
+      - 'visitors.js'
+      - 'images/**'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  LoadConfig:
+    uses: ./.github/workflows/config.yaml
+
+  UploadSite:
+    needs: [LoadConfig]
+    uses: ./.github/workflows/upload-site-sources.yaml
+    with:
+      aws_region: ${{ needs.LoadConfig.outputs.aws_region }}
+      iam_role_name: ${{ needs.LoadConfig.outputs.iam_role_name }}
+      cloudfront_stack_name: ${{ needs.LoadConfig.outputs.cloudfront_stack_name }}
+    secrets:
+      aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+

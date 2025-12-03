@@ -1,0 +1,50 @@
+name: Upload Site Sources
+on:
+  workflow_call:
+    inputs:
+      aws_region:
+        required: true
+        type: string
+      iam_role_name:
+        required: true
+        type: string
+      cloudfront_stack_name:
+        required: true
+        type: string
+    secrets:
+      aws_account_id:
+        required: true
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  UploadSiteSources:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: ./.github/actions/configure-aws
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          role-arn: arn:aws:iam::${{ secrets.aws_account_id }}:role/${{ inputs.iam_role_name }}
+          session-name: site-sources-upload
+
+      - name: Resolve website bucket from CloudFront stack outputs
+        id: resolve-website-bucket
+        uses: ./.github/actions/get-stack-output
+        with:
+          stack-name: ${{ inputs.cloudfront_stack_name }}
+          output-key: WebsiteBucketName
+
+      - name: Upload site resources
+        id: upload-site-resources
+        run: |
+          echo "Uploading to bucket: ${{ steps.resolve-website-bucket.outputs.value }}"
+          aws s3 cp index.html "s3://${{ steps.resolve-website-bucket.outputs.value }}"
+          aws s3 cp styles.css "s3://${{ steps.resolve-website-bucket.outputs.value }}"
+          aws s3 cp visitors.js "s3://${{ steps.resolve-website-bucket.outputs.value }}"
+          aws s3 cp images "s3://${{ steps.resolve-website-bucket.outputs.value }}/images/" --recursive

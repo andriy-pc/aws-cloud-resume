@@ -1,0 +1,33 @@
+name: Trigger CloudFront Stack on Change
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'cloudformation/cloudfront-setup.yaml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'cloudformation/cloudfront-setup.yaml'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  LoadConfig:
+    uses: ./.github/workflows/config.yaml
+
+  DeployCloudFrontStack:
+    needs: [LoadConfig]
+    uses: ./.github/workflows/deploy-cloudfront-stack.yaml
+    with:
+      aws_region: ${{ needs.LoadConfig.outputs.aws_region }}
+      iam_role_name: ${{ needs.LoadConfig.outputs.iam_role_name }}
+      cloudfront_stack_name: ${{ needs.LoadConfig.outputs.cloudfront_stack_name }}
+      subdomain: ${{ needs.LoadConfig.outputs.subdomain }}
+    secrets:
+      aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+      hosted_zone_id: ${{ secrets.HOSTED_ZONE_ID }}
+      api_gateway_api_key: ${{ secrets.API_GATEWAY_API_KEY }}
+      domain_name: ${{ secrets.DOMAIN_NAME }}

@@ -1,0 +1,217 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ACFS3 - CloudFront with Header Security and site content
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  DomainName:
+    Description: Apex domain
+    Type: String
+  SubDomain:
+    Description: Subdomain
+    Type: String
+  ApiGatewayApiKey:
+    Description: API Gateway X-API-Key header value
+    Type: String
+  HostedZoneId:
+    Description: HostedZoneID
+    Type: String
+
+Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName:
+        Fn::Sub: ${SubDomain}.${DomainName}
+      DomainValidationOptions:
+        - DomainName:
+            Fn::Sub: ${SubDomain}.${DomainName}
+          HostedZoneId:
+            Ref: HostedZoneId
+      ValidationMethod: DNS
+
+  S3BucketLogs:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-site-logs-cloud-resume-challenge"
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Solution
+          Value: ACFS3
+  S3BucketRoot:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-site-sources-cloud-resume-challenge"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LoggingConfiguration:
+        DestinationBucketName:
+          Ref: S3BucketLogs
+        LogFilePrefix: origin/
+      Tags:
+        - Key: Solution
+          Value: ACFS3
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3BucketRoot
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Action: s3:GetObject
+          Principal:
+            Service: cloudfront.amazonaws.com
+          Effect: Allow
+          Resource:
+            !Join ["", [!GetAtt S3BucketRoot.Arn, "/*"]]
+          Condition:
+            StringEquals:
+              AWS:SourceArn:
+                Fn::Sub: arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        HttpVersion: http2
+        IPV6Enabled: true
+        Aliases:
+          - !Sub "${SubDomain}.${DomainName}"
+        Logging:
+          Bucket: !GetAtt S3BucketLogs.DomainName
+          IncludeCookies: false
+          Prefix: cdn/
+        # Security headers
+        DefaultCacheBehavior:
+          TargetOriginId: S3Root
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          DefaultTTL: 86400
+          MaxTTL: 31536000
+          ForwardedValues:
+            QueryString: false
+          ResponseHeadersPolicyId: !Ref ResponseHeadersPolicy
+        Staging: false
+        Origins:
+          # S3 origin
+          - Id: S3Root
+            ConnectionTimeout: 10
+            ConnectionAttempts: 3
+            OriginCustomHeaders: []
+            DomainName: !GetAtt S3BucketRoot.DomainName
+            S3OriginConfig: {}
+            OriginAccessControlId: !Ref OriginAccessControl
+          # API Gateway origin
+          - Id: ApiOrigin
+            ConnectionTimeout: 10
+            ConnectionAttempts: 3
+            DomainName: !ImportValue api-gateway-stack-ApiGatewayDomainName
+            OriginCustomHeaders:
+              - HeaderName: "X-API-Key"
+                HeaderValue: !Ref ApiGatewayApiKey
+            OriginPath: ""
+            CustomOriginConfig:
+              IpAddressType: "ipv4"
+              OriginReadTimeout: 30
+              HTTPSPort: 443
+              OriginKeepaliveTimeout: 5
+              OriginSSLProtocols:
+                - "TLSv1.2"
+              HTTPPort: 80
+              OriginProtocolPolicy: "https-only"
+        ViewerCertificate:
+          MinimumProtocolVersion: "TLSv1.2_2021"
+          SslSupportMethod: "sni-only"
+          AcmCertificateArn: !Ref Certificate
+        PriceClass: "PriceClass_100"
+
+        # Cache behavior for API Gateway
+        CacheBehaviors:
+          - PathPattern: "/v1/*"
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            ForwardedValues:
+              QueryString: true
+              Headers:
+                - Origin
+                - Access-Control-Request-Method
+                - Access-Control-Request-Headers
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - POST
+              - PATCH
+              - DELETE
+            DefaultTTL: 0
+            MinTTL: 0
+            MaxTTL: 0
+
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "oac-${AWS::StackName}"
+        SigningBehavior: always
+        OriginAccessControlOriginType: s3
+        SigningProtocol: sigv4
+
+# Route53 record
+  Route53RecordSetGroup:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneName: !Sub "${DomainName}."
+      RecordSets:
+        - Name: !Sub "${SubDomain}.${DomainName}"
+          Type: A
+          AliasTarget:
+            DNSName: !GetAtt CloudFrontDistribution.DomainName
+            EvaluateTargetHealth: false
+            HostedZoneId: Z2FDTNDATAQYW2
+
+  ResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub ${AWS::StackName}-security-headers
+        SecurityHeadersConfig:
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 63072000
+            IncludeSubdomains: true
+            Preload: true
+            Override: true
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: default-src 'none'; img-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; connect-src 'self';
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: same-origin
+            Override: true
+          XSSProtection:
+            ModeBlock: true
+            Override: true
+            Protection: true
+
+
+Outputs:
+  WebsiteBucketName:
+    Description: S3 bucket for website content
+    Value: !Ref S3BucketRoot

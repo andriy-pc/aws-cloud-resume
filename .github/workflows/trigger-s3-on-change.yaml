@@ -1,0 +1,31 @@
+name: Trigger S3 Stack on Change
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'cloudformation/s3-setup.yaml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'cloudformation/s3-setup.yaml'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  LoadConfig:
+    uses: ./.github/workflows/config.yaml
+
+  DeployS3Stack:
+    needs: [LoadConfig]
+    uses: ./.github/workflows/deploy-s3-stack.yaml
+    with:
+      aws_region: ${{ needs.LoadConfig.outputs.aws_region }}
+      iam_role_name: ${{ needs.LoadConfig.outputs.iam_role_name }}
+      storage_stack_name: ${{ needs.LoadConfig.outputs.storage_stack_name }}
+      sources_bucket_ending: ${{ needs.LoadConfig.outputs.sources_bucket_ending }}
+    secrets:
+      aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+

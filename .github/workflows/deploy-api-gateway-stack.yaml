@@ -1,0 +1,56 @@
+name: Deploy API Gateway Stack
+
+on:
+  workflow_call:
+    inputs:
+      aws_region:
+        required: true
+        type: string
+      iam_role_name:
+        required: true
+        type: string
+      api_gateway_stack_name:
+        required: true
+        type: string
+      lambda_stack_name:
+        required: true
+        type: string
+    secrets:
+      aws_account_id:
+        required: true
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  CloudFormationAPIGatewayStackDeployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: ./.github/actions/configure-aws
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          role-arn: arn:aws:iam::${{ secrets.aws_account_id }}:role/${{ inputs.iam_role_name }}
+          session-name: api-gateway-stack-deployment
+
+      - name: Resolve Lambda ARN
+        id: resolve-lambda
+        uses: ./.github/actions/get-stack-output
+        with:
+          stack-name: ${{ inputs.lambda_stack_name }}
+          output-key: LambdaFunctionArn
+
+      - name: Deploy API Gateway stack
+        id: api-gateway-cloudformation-stack
+        uses: aws-actions/aws-cloudformation-github-deploy@v1.3.0
+        with:
+          name: ${{ inputs.api_gateway_stack_name }}
+          template: ./cloudformation/api-gateway-setup.yaml
+          no-fail-on-empty-changeset: "1"
+          capabilities: CAPABILITY_NAMED_IAM
+          parameter-overrides: >
+            LambdaFunctionArn=${{ steps.resolve-lambda.outputs.value }}

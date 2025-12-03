@@ -1,0 +1,72 @@
+name: Deploy Lambda Stack
+
+on:
+  workflow_call:
+    inputs:
+      aws_region:
+        required: true
+        type: string
+      iam_role_name:
+        required: true
+        type: string
+      lambda_stack_name:
+        required: true
+        type: string
+      lambda_function_name:
+        required: true
+        type: string
+      storage_stack_name:
+        required: true
+        type: string
+      dynamodb_stack_name:
+        required: true
+        type: string
+    secrets:
+      aws_account_id:
+        required: true
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  CloudFormationLambdaStackDeployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: ./.github/actions/configure-aws
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          role-arn: arn:aws:iam::${{ secrets.aws_account_id }}:role/${{ inputs.iam_role_name }}
+          session-name: lambda-stack-deployment
+
+      - name: Resolve S3 bucket name
+        id: resolve-bucket
+        uses: ./.github/actions/get-stack-output
+        with:
+          stack-name: ${{ inputs.storage_stack_name }}
+          output-key: LambdaSourcesBucketName
+
+      - name: Resolve DynamoDB table name
+        id: resolve-table
+        uses: ./.github/actions/get-stack-output
+        with:
+          stack-name: ${{ inputs.dynamodb_stack_name }}
+          output-key: DynamoDBTableName
+
+      - name: Deploy Lambda stack
+        id: lambda-cloudformation-stack
+        uses: aws-actions/aws-cloudformation-github-deploy@v1.3.0
+        with:
+          name: ${{ inputs.lambda_stack_name }}
+          template: ./cloudformation/lambda-setup.yaml
+          no-fail-on-empty-changeset: "1"
+          capabilities: CAPABILITY_NAMED_IAM
+          parameter-overrides: |
+            CodeBucket=${{ steps.resolve-bucket.outputs.value }},
+            CodeKey=sources.zip,
+            TableName=${{ steps.resolve-table.outputs.value }},
+            FunctionName=${{ inputs.lambda_function_name }}

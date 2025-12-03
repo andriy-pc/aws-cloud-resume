@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  CodeBucket:
+    Type: String
+    Description: S3 bucket containing the Lambda deployment ZIP
+  CodeKey:
+    Type: String
+    Description: S3 key of the Lambda deployment ZIP
+    Default: sources.zip
+  TableName:
+    Type: String
+    Description: DynamoDB table name for visitors tracking
+    Default: visitors_tracker
+  FunctionName:
+    Type: String
+    Description: Name for the Lambda function
+    Default: visitors_tracker_function
+
+Resources:
+  IAMRoleCloudResumeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      ManagedPolicyArns:
+        - !Ref IAMManagedPolicyPolicyDynamoDBReadWrite
+      MaxSessionDuration: 3600
+      RoleName: cloud_resume_role
+      Description: Allows Lambda functions to call AWS services on your behalf.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+  IAMManagedPolicyPolicyDynamoDBReadWrite:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: DynamoDBReadWrite
+      Path: /
+      Description: ''
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Resource:
+              - !Sub arn:aws:logs:${AWS::Region}:*:*
+            Action:
+              - logs:*
+            Effect: Allow
+            Sid: LambdaLoggingPermission
+          - Resource:
+              - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableName}/*
+            Action:
+              - dynamodb:GetShardIterator
+              - dynamodb:Scan
+              - dynamodb:Query
+              - dynamodb:DescribeStream
+              - dynamodb:GetRecords
+            Effect: Allow
+            Sid: DynamoDBIndexAndStreamAccess
+          - Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableName}
+            Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:PutItem
+              - dynamodb:DescribeTable
+              - dynamodb:DeleteItem
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+            Effect: Allow
+            Sid: DynamoDBTableAccess
+          - Resource:
+              - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableName}
+              - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableName}/*
+            Action: dynamodb:DescribeLimits
+            Effect: Allow
+            Sid: DynamoDBDescribeLimitsAccess
+  UserVisitorsTrackerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref FunctionName
+      Handler: lambda_handler.lambda_handler
+      Runtime: python3.13
+      PackageType: Zip
+
+      Role: !GetAtt IAMRoleCloudResumeRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      Description: List Amazon S3 buckets in us-east-1.
+      TracingConfig:
+        Mode: Active
+
+Outputs:
+  LambdaFunctionName:
+    Description: Name of the Lambda function
+    Value: !Ref UserVisitorsTrackerLambda
+  LambdaFunctionArn:
+    Description: ARN of the Lambda function
+    Value: !GetAtt UserVisitorsTrackerLambda.Arn

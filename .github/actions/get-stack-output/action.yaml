@@ -1,0 +1,24 @@
+name: Get CloudFormation Stack Output
+description: Fetches a specific output value from a CloudFormation stack
+inputs:
+  stack-name:
+    description: CloudFormation stack name
+    required: true
+  output-key:
+    description: Output key to fetch
+    required: true
+outputs:
+  value:
+    description: The output value
+    value: ${{ steps.fetch.outputs.value }}
+runs:
+  using: composite
+  steps:
+    - id: fetch
+      shell: bash
+      run: |
+        VALUE=$(aws cloudformation describe-stacks \
+          --stack-name "${{ inputs.stack-name }}" \
+          --query 'Stacks[0].Outputs[?OutputKey==`${{ inputs.output-key }}`].OutputValue' \
+          --output text)
+        echo "value=$VALUE" >> $GITHUB_OUTPUT

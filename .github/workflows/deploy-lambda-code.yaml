@@ -1,0 +1,60 @@
+name: Deploy Lambda Code
+
+on:
+  workflow_call:
+    inputs:
+      aws_region:
+        required: true
+        type: string
+      iam_role_name:
+        required: true
+        type: string
+      storage_stack_name:
+        required: true
+        type: string
+      lambda_function_name:
+        required: true
+        type: string
+    secrets:
+      aws_account_id:
+        required: true
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  LambdaSourcesDeploymentJob:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: ./.github/actions/configure-aws
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          role-arn: arn:aws:iam::${{ secrets.aws_account_id }}:role/${{ inputs.iam_role_name }}
+          session-name: lambda-code-deployment
+
+      - name: Resolve S3 bucket name
+        id: resolve-bucket
+        uses: ./.github/actions/get-stack-output
+        with:
+          stack-name: ${{ inputs.storage_stack_name }}
+          output-key: LambdaSourcesBucketName
+
+      - name: Zip Lambda sources
+        run: |
+          zip -r sources.zip ./lambda_handler.py
+
+      - name: Upload to S3
+        run: |
+          aws s3 cp sources.zip s3://${{ steps.resolve-bucket.outputs.value }}/
+
+      - name: Update Lambda function
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ inputs.lambda_function_name }} \
+            --s3-bucket ${{ steps.resolve-bucket.outputs.value }} \
+            --s3-key sources.zip

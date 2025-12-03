@@ -1,0 +1,58 @@
+name: Deploy CloudFront Stack
+
+on:
+  workflow_call:
+    inputs:
+      aws_region:
+        required: true
+        type: string
+      iam_role_name:
+        required: true
+        type: string
+      cloudfront_stack_name:
+        required: true
+        type: string
+      subdomain:
+        required: true
+        type: string
+    secrets:
+      aws_account_id:
+        required: true
+      hosted_zone_id:
+        required: true
+      api_gateway_api_key:
+        required: true
+      domain_name:
+        required: true
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  CloudFormationCloudFrontStackDeployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: ./.github/actions/configure-aws
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          role-arn: arn:aws:iam::${{ secrets.aws_account_id }}:role/${{ inputs.iam_role_name }}
+          session-name: cloudfront-stack-deployment
+
+      - name: Deploy CloudFront stack
+        id: deploy
+        uses: aws-actions/aws-cloudformation-github-deploy@v1.3.0
+        with:
+          name: ${{ inputs.cloudfront_stack_name }}
+          template: ./cloudformation/cloudfront-setup.yaml
+          no-fail-on-empty-changeset: "1"
+          capabilities: CAPABILITY_AUTO_EXPAND
+          parameter-overrides: >
+            DomainName=${{ secrets.domain_name }},
+            SubDomain=${{ inputs.subdomain }},
+            HostedZoneId=${{ secrets.hosted_zone_id }},
+            ApiGatewayApiKey=${{ secrets.api_gateway_api_key }}

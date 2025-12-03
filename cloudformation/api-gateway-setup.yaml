@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: API Gateway REST API with /visitors secured by X-API-Key header
+
+Parameters:
+  LambdaFunctionArn:
+    Type: String
+    Description: ARN of the Lambda function handling /visitors
+
+Resources:
+  VisitorsApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: visitors-api
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  VisitorsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref VisitorsApi
+      ParentId: !GetAtt VisitorsApi.RootResourceId
+      PathPart: visitors
+
+  VisitorsApiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeVisitorsLambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Ref LambdaFunctionArn
+
+  VisitorsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref VisitorsApi
+      ResourceId: !Ref VisitorsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      RequestValidatorId: !Ref VisitorsApiValidator
+      RequestParameters:
+        method.request.header.X-API-Key: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations
+        Credentials: !GetAtt VisitorsApiRole.Arn
+      MethodResponses:
+        - StatusCode: 200
+
+  VisitorsDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref VisitorsApi
+      StageName: v1
+    DependsOn:
+      - VisitorsMethod
+
+  VisitorsApiValidator:
+    Type: AWS::ApiGateway::RequestValidator
+    Properties:
+      Name: ValidateHeaders
+      RestApiId: !Ref VisitorsApi
+      ValidateRequestParameters: true
+
+Outputs:
+  ApiGatewayDomainName:
+    Description: "The domain name of the API Gateway"
+    Value: !Sub "${VisitorsApi}.execute-api.${AWS::Region}.amazonaws.com"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiGatewayDomainName"
