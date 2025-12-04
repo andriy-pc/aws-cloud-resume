@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Sample for creating roles for GH Actions
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  AccountId:
+    Description: Account ID
+    Type: String
+
+Resources:
+  IAMRoleAutomateddeployments:
+    UpdateReplacePolicy: "Delete"
+    Type: "AWS::IAM::Role"
+    DeletionPolicy: "Delete"
+    Properties:
+      Path: "/"
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess"
+      - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+      - "arn:aws:iam::aws:policy/AWSCloudFormationFullAccess"
+      MaxSessionDuration: 3600
+      RoleName: "automated-deployments"
+      Description: "automated-deployments"
+      Policies:
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action:
+            - "acm:DescribeCertificate"
+            - "acm:RequestCertificate"
+            - "acm:GetCertificate"
+            - "acm:ListCertificates"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: "ACMPolicy"
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action:
+            - "apigateway:POST"
+            - "apigateway:GET"
+            - "apigateway:PUT"
+            - "apigateway:PATCH"
+            - "apigateway:DELETE"
+            - "apigateway:UpdateRestApiPolicy"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: "APIGatewayPolicy"
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action:
+            - "cloudfront:CreateOriginRequestPolicy"
+            - "cloudfront:GetCloudFrontOriginAccessIdentityConfig"
+            - "cloudfront:CreateOriginAccessControl"
+            - "cloudfront:GetCachePolicyConfig"
+            - "cloudfront:TagResource"
+            - "cloudfront:CreateConnectionGroup"
+            - "cloudfront:CreateDistribution"
+            - "cloudfront:CreateCachePolicy"
+            - "cloudfront:GetDistribution"
+            - "cloudfront:GetOriginRequestPolicy"
+            - "cloudfront:GetCachePolicy"
+            - "cloudfront:UntagResource"
+            - "cloudfront:CreateResponseHeadersPolicy"
+            - "cloudfront:UpdateDistribution"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: "CloudFrontPolicy"
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action: "dynamodb:CreateTable"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: "CreateDynamoDBTable"
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action: "iam:GetRole"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: "GetRolePolicy"
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action:
+            - "iam:CreatePolicy"
+            - "iam:CreateRole"
+            - "iam:AttachRolePolicy"
+            - "iam:PassRole"
+            - "iam:PutRolePolicy"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: "IamCreatePolicyRole"
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action:
+            - "lambda:CreateFunction"
+            - "lambda:GetFunction"
+            - "lambda:UpdateFunctionCode"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: "LambdaGetCreateFunctionPolicy"
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action:
+            - "route53:GetChange"
+            - "route53:GetHostedZone"
+            - "route53:ListHostedZones"
+            - "route53:ChangeResourceRecordSets"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: "Route53Policy"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Condition:
+            StringEquals:
+              token.actions.githubusercontent.com:aud: "sts.amazonaws.com"
+            StringLike:
+              token.actions.githubusercontent.com:sub:
+              - "repo:{full/repo-name}:ref:refs/heads/*"
+              - "repo:{full/repo-name}:pull_request"
+          Action: "sts:AssumeRoleWithWebIdentity"
+          Effect: "Allow"
+          Principal:
+            Federated: !Sub "arn:aws:iam::${ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"

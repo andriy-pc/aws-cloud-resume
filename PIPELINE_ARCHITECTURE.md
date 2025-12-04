@@ -213,7 +213,7 @@ LoadConfig
 Before using the CI/CD pipeline, ensure you have:
 
 1. AWS account with OIDC provider configured for GitHub Actions
-2. IAM role named `automated-deployments` with appropriate permissions
+2. IAM role named `automated-deployments` with appropriate permissions (you can use `/cloudformation/sample-gh-actions-deployment-role.yaml as a base to create a CloudFormation stack with necessary role)
 3. Route53 hosted zone for your domain
 
 
