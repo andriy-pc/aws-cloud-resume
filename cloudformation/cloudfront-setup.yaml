@@ -145,6 +145,10 @@ Resources:
             Compress: true
             ForwardedValues:
               QueryString: true
+              Cookies:
+                Forward: whitelist
+                WhitelistedNames:
+                  - visitor_session
               Headers:
                 - Origin
                 - Access-Control-Request-Method
